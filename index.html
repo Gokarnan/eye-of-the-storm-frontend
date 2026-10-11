@@ -215,15 +215,24 @@ const CX=[],CZ=[],CR=[],col=(x,z,r)=>{CX.push(x);CZ.push(z);CR.push(r)};
  const sk=new THREE.Mesh(new THREE.PlaneGeometry(4000,4000).rotateX(-PI/2),new THREE.MeshLambertMaterial({color:0x2b3a27}));sk.position.y=-.1;sc.add(sk)}
 const D=new THREE.Object3D(),tc=new THREE.Color();
 function IM(geo,n,c){const m=new THREE.InstancedMesh(geo,new THREE.MeshLambertMaterial({color:c}),n);m.frustumCulled=false;m.count=0;sc.add(m);return m}
-function put(m,x,y,z,sx,sy,sz,ry,c,rx,rz){D.position.set(x,y,z);D.scale.set(sx,sy,sz);D.rotation.set(rx||0,ry||0,rz||0);D.updateMatrix();const i=m.count++;m.setMatrixAt(i,D.matrix);if(c!=null)m.setColorAt(i,tc.set(c))}
+function put(m,x,y,z,sx,sy,sz,ry,c,rx,rz){D.position.set(x,y,z);D.scale.set(sx,sy,sz);D.rotation.set(rx||0,ry||0,rz||0);D.updateMatrix();const i=m.count++;m.setMatrixAt(i,D.matrix);if(c!=null)m.setColorAt(i,tc.set(c));return i}
 // trees
-const trT=IM(new THREE.CylinderGeometry(.25,.35,2.5,5),400,0x4a3626),trF=IM(new THREE.ConeGeometry(2.2,6,6),400,0xffffff);
-for(let i=0;i<34;i++){const cx=rr(-W+30,W-30),cz=rr(-W+30,W-30);for(let j=0;j<5;j++){const x=cx+rr(-18,18),z=cz+rr(-18,18);if(roadD(x,z)<9||Math.abs(x)>W-10||Math.abs(z)>W-10)continue;const s=rr(.8,1.5);put(trT,x,1.25*s,z,s,s,s);put(trF,x,5.5*s,z,s,s,s,0,[0x2d4a2b,0x35542d,0x3f5a30][j%3]);col(x,z,1.1*s)}}
+const trT=IM(new THREE.CylinderGeometry(.25,.35,2.5,5),400,0x4a3626),trF=IM(new THREE.ConeGeometry(2.2,6,6),400,0xffffff),treeRecords=[];
+for(let i=0;i<34;i++){const cx=rr(-W+30,W-30),cz=rr(-W+30,W-30);for(let j=0;j<5;j++){const x=cx+rr(-18,18),z=cz+rr(-18,18);if(roadD(x,z)<9||Math.abs(x)>W-10||Math.abs(z)>W-10)continue;const s=rr(.8,1.5),ti=put(trT,x,1.25*s,z,s,s,s),fi=put(trF,x,5.5*s,z,s,s,s,0,[0x2d4a2b,0x35542d,0x3f5a30][j%3]);treeRecords.push({x,z,s,ti,fi,dead:false,fall:null});col(x,z,1.1*s)}}
 // power poles + wires
-const poT=IM(new THREE.CylinderGeometry(.22,.28,9,5),200,0x4a3c2e),poA=IM(new THREE.BoxGeometry(3.2,.2,.2),200,0x3a2f25),wires=[];
-RX.forEach(a=>{let pv=null;for(let z=-W+20;z<W;z+=48){const x=a+7;put(poT,x,4.5,z,1,1,1);put(poA,x,8.6,z,1,1,1);col(x,z,.6);if(pv!=null)wires.push(x,8.6,pv,x,8.6,z);pv=z}});
-RZ.forEach(a=>{let pv=null;for(let x=-W+20;x<W;x+=48){const z=a+7;put(poT,x,4.5,z,1,1,1);put(poA,x,8.6,z,1,1,1,PI/2);col(x,z,.6);if(pv!=null)wires.push(pv,8.6,z,x,8.6,z);pv=x}});
+const poT=IM(new THREE.CylinderGeometry(.22,.28,9,5),200,0x4a3c2e),poA=IM(new THREE.BoxGeometry(3.2,.2,.2),200,0x3a2f25),wires=[],powerPoles=[];
+RX.forEach(a=>{let pv=null;for(let z=-W+20;z<W;z+=48){const x=a+7,pi=put(poT,x,4.5,z,1,1,1),ai=put(poA,x,8.6,z,1,1,1);powerPoles.push({x,z,pi,ai,rot:0,fall:0,dead:false,side:1});col(x,z,.6);if(pv!=null)wires.push(x,8.6,pv,x,8.6,z);pv=z}});
+RZ.forEach(a=>{let pv=null;for(let x=-W+20;x<W;x+=48){const z=a+7,pi=put(poT,x,4.5,z,1,1,1),ai=put(poA,x,8.6,z,1,1,1,PI/2);powerPoles.push({x,z,pi,ai,rot:PI/2,fall:0,dead:false,side:-1});col(x,z,.6);if(pv!=null)wires.push(pv,8.6,z,x,8.6,z);pv=x}});
 {const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(wires,3));const l=new THREE.LineSegments(g,new THREE.LineBasicMaterial({color:0x101514}));l.frustumCulled=false;sc.add(l)}
+const powerFlashMat=new THREE.MeshBasicMaterial({color:0xb9f6ff,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false});
+const powerFlashes=[];for(let i=0;i<8;i++){const g=new THREE.Group();for(let j=0;j<3;j++){const m=new THREE.Mesh(new THREE.SphereGeometry(.7+j*.22,7,5),powerFlashMat.clone());m.material.color.setHex(j===0?0xe8ffff:j===1?0x8deaff:0xffd36a);g.add(m)}g.visible=false;sc.add(g);powerFlashes.push({g,t:0})}
+const wreckBits=[];const wreckGroup=new THREE.Group();sc.add(wreckGroup);
+function sparkPower(x,z){const f=powerFlashes.find(q=>q.t<=0);if(!f)return;f.t=.7;f.g.visible=true;f.g.position.set(x,rr(1,5),z);f.g.children.forEach((m,i)=>{m.position.set(rr(-2,2),rr(-1,2),rr(-2,2));m.scale.setScalar(rr(.7,2.2));m.material.opacity=.95});tone(110+Math.random()*90,.28,'sawtooth',.18);}
+function spawnWreck(x,z,n=9){for(let i=0;i<n;i++){const m=new THREE.Mesh(new THREE.BoxGeometry(rr(.7,2.5),rr(.3,1.4),rr(.6,2.2)),new THREE.MeshLambertMaterial({color:[0x8b8172,0x5c554b,0xa65a4c,0x343b3b][i%4]}));m.position.set(x+rr(-5,5),rr(1,6),z+rr(-5,5));m.rotation.set(rr(-1,1),rr(0,6),rr(-1,1));m.userData={vx:rr(-14,14),vy:rr(5,17),vz:rr(-14,14),life:rr(2.5,5)};wreckGroup.add(m);wreckBits.push(m)}}
+function tickWreckage(dt){for(let i=wreckBits.length-1;i>=0;i--){const m=wreckBits[i],u=m.userData;u.life-=dt;if(u.life<=0){wreckGroup.remove(m);m.geometry.dispose();m.material.dispose();wreckBits.splice(i,1);continue}u.vx+=(Tn.x-m.position.x)*.035*dt;u.vz+=(Tn.z-m.position.z)*.035*dt;u.vy-=18*dt;m.position.x+=u.vx*dt;m.position.y+=u.vy*dt;m.position.z+=u.vz*dt;m.rotation.x+=dt*2.7;m.rotation.z+=dt*2;if(m.position.y<.25){m.position.y=.25;u.vy=Math.abs(u.vy)*.22;u.vx*=.72;u.vz*=.72}}}
+function showFallenPole(p){const g=new THREE.Group();g.position.set(p.x,.45,p.z);g.rotation.y=Math.random()*Math.PI;g.rotation.z=(Math.random()<.5?-1:1)*1.25;const pole=new THREE.Mesh(new THREE.CylinderGeometry(.2,.28,9,5),new THREE.MeshLambertMaterial({color:0x4a3c2e}));pole.position.y=4.5;g.add(pole);const arm=new THREE.Mesh(new THREE.BoxGeometry(3.2,.2,.2),new THREE.MeshLambertMaterial({color:0x3a2f25}));arm.position.y=8.6;g.add(arm);sc.add(g);const points=[new THREE.Vector3(-7,.15,-2),new THREE.Vector3(-2,.3,1),new THREE.Vector3(3,.15,-1),new THREE.Vector3(8,.1,2)];const wire=new THREE.Line(new THREE.BufferGeometry().setFromPoints(points),new THREE.LineBasicMaterial({color:0x141b1b}));wire.position.set(p.x,.1,p.z);sc.add(wire);}
+function hideInstance(mesh,index){D.position.set(0,-10000,0);D.scale.set(0,0,0);D.rotation.set(0,0,0);D.updateMatrix();mesh.setMatrixAt(index,D.matrix);mesh.instanceMatrix.needsUpdate=true}
+
 // fences
 const fn=IM(new THREE.BoxGeometry(5,.25,.1),900,0x8a7a5e);
 [...RX.map(a=>[a,0]),...RZ.map(a=>[a,1])].forEach(([a,o])=>{let on=0;for(let s=-W+10;s<W-10;s+=5){if(Math.random()<.08)on=!on;if(!on)continue;put(fn,o?s+2.5:a-12,1.1,o?a-12:s+2.5,1,1,1,o?0:PI/2)}});
@@ -231,10 +240,11 @@ const fn=IM(new THREE.BoxGeometry(5,.25,.1),900,0x8a7a5e);
 const BX=new THREE.BoxGeometry(1,1,1),WM=[0xb9b2a0,0x8a9aa0,0x9a8d78,0xa65a4c].map(c=>IM(BX,30,c)),hoR=IM(new THREE.ConeGeometry(.75,1,4),90,0x4a3a35),rub=IM(BX,260,0xffffff);
 const wD=IM(BX,200,0x1b2a33),wL=IM(BX,200,0xffc860),dO=IM(BX,60,0x4a3224);wL.material=new THREE.MeshBasicMaterial({color:0xffc860});
 const XS=[];RX.forEach(a=>RZ.forEach(b=>XS.push([a,b])));XS.sort(()=>Math.random()-.5);
+const destructibleBuildings=[];
 XS.slice(0,3).forEach(([tx,tz])=>{for(let i=0;i<14;i++){const x=tx+rr(-55,55),z=tz+rr(-55,55),w=rr(7,11),d=rr(7,11),h=rr(4,6);if(roadD(x,z)<w/2+7)continue;
- put(WM[i%4],x,h/2,z,w,h,d);put(hoR,x,h+1.5,z,w/1.06,3,d/1.06,PI/4);
- for(const sg of [1,-1]){const zz=z+sg*(d/2+.05);for(const sx of [-.28,.28]){put(Math.random()<.3?wL:wD,x+sx*w,h*.55,zz,1.3,1.3,.15)}}
- put(dO,x,1.1,z+d/2+.08,1.4,2.2,.15);col(x,z,Math.max(w,d)*.6)}});
+ const parts=[];parts.push([WM[i%4],put(WM[i%4],x,h/2,z,w,h,d)]);parts.push([hoR,put(hoR,x,h+1.5,z,w/1.06,3,d/1.06,PI/4)]);
+ for(const sg of [1,-1]){const zz=z+sg*(d/2+.05);for(const sx of [-.28,.28]){const mm=Math.random()<.3?wL:wD;parts.push([mm,put(mm,x+sx*w,h*.55,zz,1.3,1.3,.15)])}}
+ parts.push([dO,put(dO,x,1.1,z+d/2+.08,1.4,2.2,.15)]);destructibleBuildings.push({x,z,w,d,h,parts,dead:false});col(x,z,Math.max(w,d)*.6)}});
 const bM=IM(BX,40,0x7a2f27),bT=IM(BX,90,0xe8e2d0),sil=IM(new THREE.CylinderGeometry(2.4,2.4,1,10),30,0x9aa3a1),silT=IM(new THREE.ConeGeometry(2.6,2,10),30,0x555d5b);
 for(let i=0;i<26;i++){const x=rr(-W+60,W-60),z=rr(-W+60,W-60);if(roadD(x,z)<25)continue;
  put(bM,x,4,z,12,8,16);put(hoR,x,10.5,z,12/1.06,5,16/1.06,PI/4);put(bT,x,2.6,z+8.05,5,5.2,.2);put(bT,x,6.3,z+8.05,2,.5,.2);col(x,z,8);
@@ -299,11 +309,11 @@ function escHTML(v){return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt
 function multiplayerMenu(){
  show(`<h1>Multiplayer</h1><p>Browse open rooms or create a private room for your friends. Multiplayer has <b>no coins, score rewards, or probe bonuses.</b></p>
  <label class="k" for="mpNameInput">Chaser name</label><input id="mpNameInput" maxlength="18" value="${escHTML(mp.name)}" placeholder="Your name">
- <label class="k" for="mpUrlInput">WebSocket server address</label><input id="mpUrlInput" value="${escHTML(mp.url||((location.protocol==='https:'?'wss://':'ws://')+(location.hostname||'localhost')+':8765'))}" placeholder="ws://192.168.1.10:8765">
+ <label class="k" for="mpUrlInput">WebSocket server address</label><input id="mpUrlInput" value="${escHTML(mp.url||'wss://eye-of-the-storm-backend.onrender.com')}" placeholder="wss://your-service.onrender.com">
  <div class="roomPanel"><h2>Available rooms</h2><p class="k">Tap a room to select it. Locked rooms need their password.</p><div id="roomList" class="roomList"><p class="k">Connect to the server to load rooms.</p></div><button class="g" data-a="mprooms">↻ Refresh rooms</button></div>
  <div class="roomPanel"><h2>Join a room</h2><label class="k" for="mpRoomInput">Room name</label><input id="mpRoomInput" maxlength="28" value="${escHTML(mp.room)}" placeholder="room-name"><label class="k" for="mpPassInput">Room password (if locked)</label><input id="mpPassInput" type="password" maxlength="64" placeholder="Password"><button data-a="mpconnect">Join room</button></div>
  <div class="roomPanel"><h2>Create a room</h2><label class="k" for="mpNewRoomInput">New room name</label><input id="mpNewRoomInput" maxlength="28" placeholder="friends-storm-room"><label class="k" for="mpNewPassInput">Password (optional, for private rooms)</label><input id="mpNewPassInput" type="password" maxlength="64" placeholder="Leave blank for public"><button data-a="mpcreate">Create &amp; play</button></div>
- <p class="k">A host computer must run the included server.py. For phones on the same Wi-Fi, use the host PC's LAN IP. Use WSS on public servers.</p><button class="g" data-a="mpdisconnect">Disconnect</button><button class="g" data-a="backmenu">Back</button><p class="k" id="mpError"></p>`);
+ <p class="k">For online multiplayer, use your deployed server's WSS address. The default is your previously configured Render backend; change it only if your Render service uses a different hostname.</p><button class="g" data-a="mpdisconnect">Disconnect</button><button class="g" data-a="backmenu">Back</button><p class="k" id="mpError"></p>`);
  if(mp.ws&&mp.ws.readyState===WebSocket.OPEN){requestRooms();}else connectRoomBrowser();
 }
 function connectRoomBrowser(){const u=$('mpUrlInput')?.value.trim();if(!u||!/^wss?:\/\//i.test(u))return;try{if(mp.browserWs)mp.browserWs.close();mp.browserWs=new WebSocket(u)}catch(e){return}const ws=mp.browserWs;ws.onopen=()=>{if(mp.browserWs===ws)ws.send(JSON.stringify({type:'list_rooms'}))};ws.onmessage=e=>{if(mp.browserWs!==ws)return;let m;try{m=JSON.parse(e.data)}catch(_){return}if(m.type==='rooms')renderRooms(m.rooms||[])};ws.onclose=()=>{if(mp.browserWs===ws)mp.browserWs=null}}
@@ -410,7 +420,7 @@ $('bm').onclick=()=>{aud();muted=!muted;if(MG)MG.gain.value=muted?0:.55;$('bm').
 /* ---------- state + input ---------- */
 const T={x:0,z:0,h:0,vx:0,vz:0,st:0,y:0,vy:0,rx:0,rz:0},keys={},tch={gas:0,brake:0,drift:0,boost:0,steer:0};
 let G={t:0,lvl:0,hp:100,fuel:100,data:0,samples:0,probes:0,minGap:1e9,flip:0,roll:0,shake:0,hit:0,dc:0,ac:0},st='menu',hc=0,tt=0,lt=5,flash=0,boltT=0;
-const mp={ws:null,browserWs:null,connected:false,room:'storm-room',name:'Chaser',url:'',id:'',hostId:'',isHost:false,lastSend:0,peers:new Map(),labels:new Map(),color:'#ffb53b'};
+const mp={ws:null,browserWs:null,connected:false,room:'storm-room',name:'Chaser',url:'wss://eye-of-the-storm-backend.onrender.com',id:'',hostId:'',isHost:false,lastSend:0,peers:new Map(),labels:new Map(),color:'#ffb53b'};
 let best=0;try{best=+localStorage.getItem('eots_best')||0}catch(e){}
 addEventListener('keydown',e=>{keys[e.code]=1;if(e.code==='KeyP'||e.code==='Escape')togglePause();if(e.code==='Enter'&&st!=='play'&&st!=='pause')start();if(/Space|Arrow/.test(e.code))e.preventDefault()});
 addEventListener('keyup',e=>{keys[e.code]=0});addEventListener('blur',()=>{for(const k in keys)keys[k]=0;if(st==='play')pause()});
@@ -497,6 +507,32 @@ function debStep(dt){const g=G;g.dc-=dt;
    if(d.y<=.4){d.y=.4;d.vx=d.vz=d.vy=0;d.l=Math.min(d.l,4)}
    else if(Math.hypot(d.x-T.x,d.z-T.z)<2.8&&Math.abs(d.y-(T.y+1.3))<2.6){hurt(DM[d.k]*(.6+Math.hypot(d.vx-T.vx,d.vz-T.vz)/50),.8);T.vx+=d.vx*.1;T.vz+=d.vz*.1;if(T.y<=0&&DM[d.k]>=10&&Math.random()<.3)T.vy=6;d.on=0;d.m.visible=false;continue}}
   d.m.position.set(d.x,d.y,d.z)}}
+const fallenTrees=[];
+const roadDamage=[];let roadDamageCooldown=0;
+function uprootTree(t){t.dead=true;hideInstance(trT,t.ti);hideInstance(trF,t.fi);const g=new THREE.Group();g.position.set(t.x,.08,t.z);g.rotation.y=Math.random()*Math.PI;g.rotation.z=(Math.random()<.5?-1:1)*(.9+Math.random()*.45);const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.22*t.s,.32*t.s,2.5*t.s,5),new THREE.MeshLambertMaterial({color:0x4a3626}));trunk.position.y=1.1*t.s;g.add(trunk);const crown=new THREE.Mesh(new THREE.ConeGeometry(2.2*t.s,5.5*t.s,6),new THREE.MeshLambertMaterial({color:[0x2d4a2b,0x35542d,0x3f5a30][Math.floor(Math.random()*3)]}));crown.position.set(0,4*t.s,0);g.add(crown);sc.add(g);fallenTrees.push({g,t:rr(7,12),x:t.x,z:t.z});spawnWreck(t.x,t.z,2)}
+function breakRoad(){
+ // Create a persistent broken-asphalt scar on the nearest road when the storm reaches EF5.
+ let best=null,bd=Infinity;for(const x of RX){const d=Math.abs(Tn.x-x);if(d<bd){bd=d;best={x,z:Tn.z,vertical:true}}}for(const z of RZ){const d=Math.abs(Tn.z-z);if(d<bd){bd=d;best={x:Tn.x,z,vertical:false}}}if(!best||bd>14)return;
+ const x=best.vertical?best.x:clamp(best.x,-W+15,W-15),z=best.vertical?clamp(best.z,-W+15,W-15):best.z;
+ const scar=new THREE.Group();scar.position.set(x,.035,z);scar.rotation.y=Math.random()*.25;sc.add(scar);
+ const asphalt=new THREE.Mesh(new THREE.CircleGeometry(rr(5.5,8),9),new THREE.MeshBasicMaterial({color:0x171d1f,transparent:true,opacity:.92,depthWrite:false}));asphalt.rotation.x=-PI/2;asphalt.scale.set(best.vertical?1.25:.8,best.vertical?.8:1.25,1);scar.add(asphalt);
+ for(let i=0;i<7;i++){const shard=new THREE.Mesh(new THREE.BoxGeometry(rr(1,3.8),.16,rr(.5,1.6)),new THREE.MeshLambertMaterial({color:i%2?0x34383a:0x555653}));shard.position.set(rr(-7,7),.15,rr(-5,5));shard.rotation.y=rr(0,Math.PI);shard.rotation.z=rr(-.15,.15);scar.add(shard)}
+ // Jagged pale fracture lines across the asphalt.
+ for(let i=0;i<4;i++){const pts=[new THREE.Vector3(rr(-4,4),.17,rr(-4,4)),new THREE.Vector3(rr(-2,2),.17,rr(-2,2)),new THREE.Vector3(rr(-7,7),.17,rr(-6,6))];scar.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0x92928a,transparent:true,opacity:.7}))) }
+ roadDamage.push(scar);spawnWreck(x,z,8);sparkPower(x,z);toast('EF5 winds tore up the road!');
+}
+function damageWorld(dt){
+ const ef=Math.min(5,(G.lvl||0)+1);
+ const treeRadius=[0,0,22,30,40,52][ef];
+ if(ef>=2){for(const tr of treeRecords){if(tr.dead)continue;const d=Math.hypot(Tn.x-tr.x,Tn.z-tr.z);if(d<treeRadius&&Math.random()<dt*(.25+(ef-1)*.23+(1-d/treeRadius)*1.8))uprootTree(tr)}}
+ for(let i=fallenTrees.length-1;i>=0;i--){fallenTrees[i].t-=dt;if(fallenTrees[i].t<=0){sc.remove(fallenTrees[i].g);fallenTrees.splice(i,1)}}
+ if(ef>=5){roadDamageCooldown-=dt;if(roadDamageCooldown<=0){breakRoad();roadDamageCooldown=3.5}}
+ // Structures are removed once the destructive core reaches them; debris is thrown into the vortex.
+ for(const b of destructibleBuildings){if(b.dead)continue;const d=Math.hypot(Tn.x-b.x,Tn.z-b.z);if(d<Tn.R*.72&&Math.random()<dt*(.45+(1-d/(Tn.R*.72))*2.4)){b.dead=true;for(const [m,i] of b.parts)hideInstance(m,i);spawnWreck(b.x,b.z,12);sparkPower(b.x+rr(-b.w/2,b.w/2),b.z+rr(-b.d/2,b.d/2));if(Math.random()<.65)toast('Tornado ripped a building apart!')}}
+ for(const p of powerPoles){if(p.dead)continue;const d=Math.hypot(Tn.x-p.x,Tn.z-p.z);if(d<Tn.R*.88&&Math.random()<dt*(.5+(1-d/(Tn.R*.88))*3)){p.dead=true;hideInstance(poT,p.pi);hideInstance(poA,p.ai);showFallenPole(p);spawnWreck(p.x,p.z,5);sparkPower(p.x,p.z);HZ.push([p.x,p.z]);if(Math.random()<.7)toast('Power lines snapped! Electrical arcing!')}}
+ for(const f of powerFlashes){if(f.t>0){f.t-=dt;f.g.visible=f.t>0;f.g.scale.setScalar(.7+Math.random()*1.2);f.g.children.forEach(m=>m.material.opacity=Math.max(0,f.t/0.7)*(0.5+Math.random()*.5))}}
+ tickWreckage(dt);
+}
 function truckStep(dt){const g=G;g.t+=dt;
  const nl=g.t/60|0;if(nl>g.lvl){g.lvl=nl;toast('Storm intensifies — EF'+Math.min(5,nl+1));{const e=$('ef');e.classList.remove('up');void e.offsetWidth;e.classList.add('up')}tone(520,.5,'square',.15);boom(0,3,160,1)}
  g.stun=Math.max(0,(g.stun||0)-dt);const fl=g.flip>0,air0=T.y>0,ctl=!(fl||g.stun>0||air0),gas=ctl&&(keys.KeyW||keys.ArrowUp||tch.gas),br=ctl&&(keys.KeyS||keys.ArrowDown||tch.brake),dr=ctl&&(keys.Space||tch.drift),bt=ctl&&(keys.ShiftLeft||keys.ShiftRight||tch.boost);
@@ -582,7 +618,7 @@ function hud(){const g=G,dx=Tn.x-T.x,dz=Tn.z-T.z,d=Math.hypot(dx,dz),fx=Math.sin
 /* ---------- main loop ---------- */
 let last=0,fa=0,fc=0,fr=0;
 function loop(t){requestAnimationFrame(loop);const dt=Math.min((t-last)/1000||0,.05);last=t;
- if(st!=='pause'){tt+=dt;if(st==='play')truckStep(dt);if(st!=='pause'){tornStep(dt);weather(dt);hail(dt);animals(dt)}camStep(dt);sendMP(t);projectRemoteLabels();
+ if(st!=='pause'){tt+=dt;if(st==='play')truckStep(dt);if(st!=='pause'){tornStep(dt);if(st==='play')damageWorld(dt);weather(dt);hail(dt);animals(dt)}camStep(dt);sendMP(t);projectRemoteLabels();
   fa+=dt;fc++;if(fa>2){const fps=fc/fa;fa=fc=0;if(fps<42&&pr>.7){pr=Math.max(.7,pr-.25);rs();rg.setDrawRange(0,Math.max(200,rg.drawRange.count===Infinity?RN*2:rg.drawRange.count-300))}}}
  if(++fr%3===0&&(st==='play'||st==='over'))hud();
  rd.render(sc,cam)}
